@@ -9,3 +9,13 @@ yarn-error.log*
 .pnp.js
 
 .vscode/*
+.idea/*
+# Added build artifacts
+/dist
+/package
+/lambda.zip
+terraform.tfstate*
+.terraform/
+.terraform-build/
+/local-output.pdf
+/local-health.html

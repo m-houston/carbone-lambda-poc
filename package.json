@@ -1,13 +1,29 @@
 {
-  "name": "${PROJECT_NAME}",
+  "name": "carbone-lambda-poc",
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/index.js",
+  "description": "POC Lambda to render DOCX template to PDF using Carbone + LibreOffice layer",
+  "main": "package/index.cjs",
   "scripts": {
-    "build": "tsc"
+    "clean": "rm -rf dist package lambda.zip",
+    "build": "npm run clean && node ./scripts/build.mjs",
+    "package": "npm run build && node ./scripts/package.mjs",
+    "typecheck": "tsc --noEmit",
+    "local:invoke": "node ./scripts/local-invoke.mjs",
+    "tf:init": "cd infra && terraform init",
+    "tf:plan": "cd infra && terraform plan",
+    "tf:apply": "cd infra && terraform apply -auto-approve",
+    "tf:destroy": "cd infra && terraform destroy -auto-approve"
   },
-  "dependencies": {},
+  "dependencies": {
+    "carbone": "^3.5.6",
+    "tar": "^6.2.0"
+  },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.129",
+    "@types/carbone": "^3.2.5",
+    "@types/node": "^20.11.30",
+    "@types/tar": "^6.1.10",
+    "esbuild": "^0.23.0",
     "typescript": "^5.5.3"
   },
   "private": true
