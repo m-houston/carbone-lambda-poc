@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PDF Input Builder</title>
+  <style>
+    :root { --bg:#f5f7fa; --border:#d0d7de; --primary:#1f6feb; --danger:#b42318; --warn:#b08600; }
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin:1.25rem auto; max-width:1080px; line-height:1.4; padding:0 1rem; background:var(--bg); }
+    h1 { font-size:1.3rem; margin:.2rem 0 1rem; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .status { font-size:.75rem; background:#fff; padding:.5rem .75rem; border:1px solid var(--border); display:inline-block; border-radius:4px; margin-bottom:.8rem; }
+    .status.ok { border-color:#2da44e; box-shadow:0 0 0 1px #2da44e33; }
+    table { border-collapse:collapse; width:100%; }
+    th,td { border:1px solid var(--border); padding:.35rem .45rem; font-size:.75rem; }
+    th { background:#fff; text-align:left; }
+    tbody tr:nth-child(even){ background:#f9fbfc; }
+    input,select,textarea,button { font-family:inherit; font-size:.8rem; }
+    input[type=text],input[type=number],input[type=date],select,textarea { width:100%; box-sizing:border-box; padding:.35rem .45rem; }
+    button { cursor:pointer; }
+    .controls { margin:.5rem 0; display:flex; gap:.5rem; flex-wrap:wrap; }
+    .btn { border:1px solid var(--border); background:#fff; padding:.4rem .7rem; border-radius:4px; font-size:.7rem; }
+    .btn.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .btn.danger { border-color:var(--danger); color:var(--danger); }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    pre { background:#fff; border:1px solid var(--border); padding:.75rem; font-size:.7rem; max-height:360px; overflow:auto; }
+    fieldset { border:1px solid var(--border); background:#fff; border-radius:6px; padding:.75rem .9rem; }
+    legend { padding:0 .35rem; font-weight:600; }
+    .error { color:var(--danger); font-size:.65rem; margin-top:.35rem; }
+    .duplicate { outline:2px solid var(--danger); background:#fff5f5; }
+    .two-col { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); margin-top:1rem; }
+    footer { margin-top:2rem; font-size:.6rem; color:#555; }
+    details { margin-top:1rem; }
+    .tag { display:inline-block; padding:.15rem .4rem; background:#eaeef2; border-radius:999px; font-size:.55rem; letter-spacing:.05em; text-transform:uppercase; }
+  </style>
+</head>
+<body>
+  <h1>Template Data Builder</h1>
+  <div class="status" id="status-container">
+    <strong>Status:</strong> Loading...
+  </div>
+
+  <noscript>
+    <div class="panel" style="border-left:4px solid var(--warn); padding:1rem; background:#fff; margin:1rem 0;"><strong>JavaScript disabled.</strong> Falling back to raw JSON editing.
+      <form method="POST" action="/" target="_blank">
+        <textarea name="dataJson" rows="12" style="width:100%;margin-top:.5rem;font-family:monospace;">{\n  "data": {\n    "example": "value"\n  }\n}</textarea>
+        <div style="margin-top:.5rem;"><button type="submit" class="btn primary">Render PDF</button></div>
+      </form>
+    </div>
+  </noscript>
+
+  <form id="data-form" method="POST" action="/" enctype="application/x-www-form-urlencoded" target="_blank"> 
+    <input type="hidden" name="dataJson" id="dataJsonHidden" />
+
+    <fieldset>
+      <legend>Fields</legend>
+      <table aria-describedby="fields-help">
+        <thead>
+          <tr>
+            <th style="width:28%">Key</th>
+            <th style="width:16%">Type</th>
+            <th>Value</th>
+            <th style="width:42px"></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="fields-help" style="font-size:.65rem;margin-top:.4rem;">Add properties that become <code>data</code> fields.</div>
+      <div class="controls">
+        <button type="button" id="add-field" class="btn">+ Add Field</button>
+        <button type="button" id="clear-fields" class="btn danger">Clear</button>
+      </div>
+    </fieldset>
+
+    <div class="two-col">
+      <div>
+        <h2 style="font-size:.9rem;margin:.8rem 0 .4rem;">Payload Preview <span id="preview-status" class="tag">OK</span></h2>
+        <pre id="preview"></pre>
+        <div id="validationErrors" class="error" style="display:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <h2 style="font-size:.9rem;margin:.8rem 0 .4rem;">Submit</h2>
+          <p style="font-size:.65rem;margin-top:0;">Opens the generated PDF in a new tab.</p>
+        </div>
+        <div>
+          <button id="submitBtn" disabled type="submit" class="btn primary" style="width:100%;">Render PDF</button>
+        </div>
+      </div>
+    </div>
+  
+    <details>
+      <summary>Advanced JSON Mode</summary>
+      <p style="font-size:.65rem;">Toggle raw JSON editing. Provide an object shaped like <code>{ "data": { ... } }</code>.</p>
+      <textarea id="advancedTextarea" rows="10" style="width:100%;font-family:monospace;display:none;"></textarea>
+      <div id="advancedError" class="error" style="display:none"></div>
+      <label style="display:inline-block;margin-top:.4rem;font-size:.65rem;">
+        <input type="checkbox" id="advancedMode" /> Enable raw JSON editing
+      </label>
+    </details>
+  </form>
+
+  <details>
+    <summary>How it works</summary>
+    <p>Entries are transformed into <code>{ "data": { ... } }</code>. Types:</p>
+    <ul style="font-size:.75rem">
+      <li><strong>string:</strong> literal text</li>
+      <li><strong>number:</strong> numeric value</li>
+      <li><strong>boolean:</strong> true/false</li>
+      <li><strong>date:</strong> ISO format (YYYY-MM-DD)</li>
+    </ul>
+  </details>
+
+  <footer id="footer-info">
+    Built: {{BUILT_AT}} • Node {{NODE_VERSION}}
+  </footer>
+
+  <script>
+    // Server data injected at runtime
+    window.SERVER_DATA = {
+      isTemplateValid: {{IS_TEMPLATE_VALID}},
+      isLoReady: {{IS_LO_READY}},
+      builtAt: '{{BUILT_AT}}',
+      nodeVersion: '{{NODE_VERSION}}'
+    };
+  </script>
+  <script>
+{{CLIENT_JS}}
+  </script>
+</body>
+</html>
