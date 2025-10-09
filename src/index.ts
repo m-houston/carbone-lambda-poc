@@ -7,7 +7,9 @@ import {
   createPdfResponse,
   createErrorResponse,
   createInputFormResponse,
-  isGetRequest
+  isGetRequest,
+  validateAuth,
+  createAuthChallengeResponse
 } from './modules/request-handler.js'
 
 /**
@@ -22,6 +24,12 @@ export const handler = async (
   const start = Date.now()
 
   try {
+    // Check authentication first
+    if (!validateAuth(event)) {
+      log('warn', 'Authentication failed', { requestId })
+      return createAuthChallengeResponse()
+    }
+
     // GET returns interactive input form
     if (isGetRequest(event)) {
       await ensureWarmup()

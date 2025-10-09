@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.4"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.4"
+    }
   }
 }
 
@@ -73,6 +77,17 @@ provider "aws" {
 
 provider "archive" {}
 
+provider "random" {}
+
+# Generate a random password for basic authentication
+resource "random_password" "basic_auth" {
+  length  = 16
+  special = false
+  upper   = true
+  lower   = true
+  numeric = true
+}
+
 # Build step: run npm install & package (esbuild + zip) before deploying
 resource "null_resource" "build" {
   # Rebuild if any of these change (add more patterns as needed)
@@ -135,6 +150,7 @@ resource "aws_lambda_function" "this" {
       NODE_OPTIONS    = "--enable-source-maps"
       DEBUG_RENDER    = var.debug_render ? "1" : "0"
       ALWAYS_SOFFICE  = var.always_soffice ? "1" : "0"
+      BASIC_AUTH_PASSWORD = random_password.basic_auth.result
     }
   }
 
@@ -155,4 +171,10 @@ output "lambda_function_name" {
 
 output "lambda_function_url" {
   value = aws_lambda_function_url.this.function_url
+}
+
+output "basic_auth_password" {
+  value     = random_password.basic_auth.result
+  sensitive = true
+  description = "Basic authentication password for the Lambda function"
 }

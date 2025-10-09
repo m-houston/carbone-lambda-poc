@@ -8,6 +8,87 @@ import { isLibreOfficeReady } from './libreoffice.js'
 import { validateTemplate } from './conversion.js'
 
 /**
+ * Validates authentication via query parameter or basic auth header
+ * @param event - API Gateway event
+ * @returns true if authenticated, false otherwise
+ */
+export function validateAuth(event: APIGatewayProxyEventV2): boolean {
+  const expectedPassword = process.env.BASIC_AUTH_PASSWORD
+  
+  if (!expectedPassword) {
+    console.warn('BASIC_AUTH_PASSWORD environment variable not set, skipping authentication')
+    return true
+  }
+
+  // Method 1: Check for password in query parameters
+  const queryPassword = event.queryStringParameters?.password
+  if (queryPassword === expectedPassword) {
+    return true
+  }
+
+  // Method 2: Check for password in form data (for POST requests)
+  if (event.body && event.requestContext.http.method === 'POST') {
+    try {
+      const contentType = event.headers?.['content-type'] || event.headers?.['Content-Type'] || ''
+      
+      if (contentType.includes('application/x-www-form-urlencoded')) {
+        // Check if body is base64 encoded (Lambda function URLs can base64 encode the body)
+        let bodyText = event.body
+        if (event.isBase64Encoded) {
+          bodyText = Buffer.from(event.body, 'base64').toString('utf-8')
+        }
+        
+        const formData = new URLSearchParams(bodyText)
+        const formPassword = formData.get('password')
+        if (formPassword === expectedPassword) {
+          return true
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing form data:', error)
+    }
+  }
+
+  // Method 3: Check for basic auth header (supports user:password@domain URLs)
+  const authHeader = event.headers?.authorization || event.headers?.Authorization
+  if (authHeader && authHeader.startsWith('Basic ')) {
+    try {
+      // Decode the base64 credentials
+      const credentials = Buffer.from(authHeader.slice(6), 'base64').toString('utf-8')
+      const [username, password] = credentials.split(':')
+      
+      // Username can be anything, we only check the password
+      return password === expectedPassword
+    } catch (error) {
+      console.error('Error parsing basic auth header:', error)
+      return false
+    }
+  }
+
+  return false
+}
+
+/**
+ * Creates a 401 Unauthorized response with simple instructions
+ */
+export function createAuthChallengeResponse(): APIGatewayProxyStructuredResultV2 {
+  return {
+    statusCode: 401,
+    isBase64Encoded: false,
+    headers: {
+      'Content-Type': 'application/json; charset=UTF-8'
+    },
+    body: JSON.stringify({
+      error: 'Authentication required',
+      statusCode: 401,
+      message: 'Add ?password=YOUR_PASSWORD to the URL to access this service',
+      example: 'https://your-lambda-url/?password=YOUR_PASSWORD',
+      note: 'The password is provided by your administrator'
+    })
+  }
+}
+
+/**
  * Result of parsing request body
  */
 export interface ParseResult {
@@ -255,6 +336,7 @@ function getHtmlTemplate(): string {
 
   <form id="data-form" method="POST" action="/" enctype="application/x-www-form-urlencoded" target="_blank"> 
     <input type="hidden" name="dataJson" id="dataJsonHidden" />
+    <input type="hidden" name="password" id="passwordHidden" />
 
     <fieldset>
       <legend>Fields</legend>
@@ -392,6 +474,13 @@ const App = {
     this.state.nodeVersion = serverData.nodeVersion;
     this.updateStatusDisplay();
     this.updateFooter();
+    
+    // Set password from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const password = urlParams.get('password');
+    if (password) {
+      document.getElementById('passwordHidden').value = password;
+    }
     
     // Set up event listeners
     this.setupEventListeners();
@@ -574,6 +663,7 @@ const App = {
         e.preventDefault();
         this.elements.advErr.textContent = 'Invalid JSON: ' + err.message;
         this.elements.advErr.style.display = 'block';
+        return;
       }
     } else {
       // Normal mode: use the fields from the table
