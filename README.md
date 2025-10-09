@@ -23,7 +23,7 @@ Local development placeholder mode (`SKIP_CONVERT=1`) skips the extraction entir
 
 ## Project Structure
 ```
-src/                # Lambda handler (index.ts) + types
+src/                # Lambda handler (index.ts) + modules + utils
 scripts/            # build, package, local-invoke scripts
 infra/              # Terraform configuration
 templates/          # DOCX template included in deployment
@@ -83,21 +83,21 @@ Request (Lambda URL / Function URL invokes with standard proxy body):
 Response (success): HTTP 200, `Content-Type: application/pdf`, base64 body.
 Errors: JSON `{"message":"..."}` with 400 or 500.
 
-## Health Check (GET)
-A GET request to the Lambda URL now returns an HTML page (not JSON) with:
+## Input Form (GET)
+A GET request to the Lambda URL returns an HTML page (not JSON) with:
 - Current status flags (LibreOffice extracted, template present)
 - A textarea form pre-populated with sample JSON
 - A POST target that submits as `application/x-www-form-urlencoded` using `dataJson` field
 
 Open directly in a browser:
-```
-https://YOUR_LAMBDA_FUNCTION_URL/
-```
-Or fetch raw HTML:
 ```bash
-curl -s $LAMBDA_URL | head -n 20
+open "$LAMBDA_URL"  # or visit in browser
 ```
-Submitting the form (click the button) opens the rendered PDF in a new tab (inline).
+Fetch raw HTML:
+```bash
+curl -s "$LAMBDA_URL" | head -n 20
+```
+Submitting the form opens the rendered PDF in a new tab (inline).
 
 ## Default Data Fallback
 POST requests with ANY of the following are treated as a request to render the template with default mock data:
@@ -123,7 +123,7 @@ curl -s -X POST "$LAMBDA_URL" \
 ```
 
 ## Local Testing Shortcuts
-HTML health page (writes local-health.html):
+HTML input form page (writes local-health.html):
 ```bash
 npm run build
 node scripts/local-invoke.mjs --get
@@ -142,7 +142,7 @@ Explicit empty JSON (still default data):
 ```bash
 node scripts/local-invoke.mjs '{}'
 ```
-GET health check (HTML):
+GET input form (HTML):
 ```bash
 node scripts/local-invoke.mjs --get
 ```

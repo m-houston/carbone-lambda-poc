@@ -19,15 +19,30 @@ async function run() {
   }
   mkdirSync(outDir, { recursive: true })
 
+  // Bundle everything starting from handler entrypoint. This removes the need
+  // to ship source tree separately and avoids runtime missing module errors.
   await build({
     entryPoints: [resolve(root, 'src', 'index.ts')],
     platform: 'node',
     target: 'node20',
     format: 'cjs',
-    bundle: false,
+    bundle: true,
     outdir: outDir,
     outExtension: { '.js': '.cjs' },
-    logLevel: 'info'
+    logLevel: 'info',
+    metafile: true,
+    sourcemap: true,
+    sourcesContent: false,
+    external: [
+      // Keep native/runtime dependencies external so Lambda layer / node_modules handle them
+      'carbone',
+      'tar'
+    ]
+  }).then(result => {
+    // Optionally write metafile for inspection
+    try {
+      writeFileSync(resolve(outDir, 'meta.json'), JSON.stringify(result.metafile, null, 2))
+    } catch {}
   })
 
   mkdirSync(templateDestDir, { recursive: true })
