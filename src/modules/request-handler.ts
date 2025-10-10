@@ -102,7 +102,18 @@ export interface ParseResult {
 function buildDefaultData(): Record<string, any> {
   return {
     example: 'default-render',
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    fullName: 'John Smith',
+    firstName: 'John',
+    lastName: 'Smith',
+    nhsNumber: '9990000000',
+    address_line_1: 'Mr John Smith',
+    address_line_2: '221B Baker Street',
+    address_line_3: 'London',
+    address_line_4: 'NW1 6XE',
+    address_line_5: 'United Kingdom',
+    address_line_6: '',
+    address_line_7: ''
   }
 }
 
@@ -457,6 +468,13 @@ const App = {
       { key: 'firstName', type: 'string', value: 'John' },
       { key: 'lastName', type: 'string', value: 'Smith' },
       { key: 'nhsNumber', type: 'string', value: '9990000000' },
+      { key: 'address_line_1', type: 'string', value: 'Mr John Smith' },
+      { key: 'address_line_2', type: 'string', value: '221B Baker Street' },
+      { key: 'address_line_3', type: 'string', value: 'London' },
+      { key: 'address_line_4', type: 'string', value: 'NW1 6XE' },
+      { key: 'address_line_5', type: 'string', value: 'United Kingdom' },
+      { key: 'address_line_6', type: 'string', value: '' },
+      { key: 'address_line_7', type: 'string', value: '' },
       { key: 'date', type: 'date', value: new Date().toISOString().substring(0, 10) }
     ],
     isTemplateValid: false,
