@@ -7,6 +7,7 @@ import carbone from 'carbone'
 import { log } from '../utils/logger.js'
 import { ensureLibreOfficeExtracted, isLibreOfficeReady, findSofficeBinary } from './libreoffice.js'
 import { validateTemplate, getTemplateSize } from './conversion.js'
+import { listTemplates } from './template-markers.js'
 
 let warmupPromise: Promise<void> | null = null
 
@@ -45,12 +46,16 @@ async function performWarmup(): Promise<void> {
     // Find soffice binary
     const sofficePath = findSofficeBinary()
 
+    const templates = listTemplates()
+
     log('info', 'Warmup complete', {
       templateSize: getTemplateSize(),
       carboneVersion,
       loReady: isLibreOfficeReady(),
       sofficeFound: !!sofficePath,
-      sofficePath
+      sofficePath,
+      templateCount: templates.length,
+      templates: templates.map(t => ({ name: t.name, markers: t.markers.length }))
     })
   } catch (error: any) {
     log('error', 'Warmup failed', { error: error.message })

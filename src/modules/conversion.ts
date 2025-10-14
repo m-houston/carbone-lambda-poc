@@ -12,8 +12,26 @@ import { findSofficeBinary, prepareFontConfig } from './libreoffice.js'
 
 const execFileAsync = promisify(execFile)
 
-// Template configuration
-const TEMPLATE_PATH = path.join(__dirname, 'templates', 'letter-template-nhs-notify_.docx')
+// Template configuration directory (contains one or more .docx templates)
+const TEMPLATES_DIR = path.join(__dirname, 'templates')
+
+/**
+ * Resolves a template path. If templateName provided, uses that filename (with .docx if missing).
+ * Falls back to first available template.
+ */
+export function resolveTemplatePath(templateName?: string): string {
+  if (templateName) {
+    const file = templateName.toLowerCase().endsWith('.docx') ? templateName : `${templateName}.docx`
+    const candidate = path.join(TEMPLATES_DIR, file)
+    if (fs.existsSync(candidate)) return candidate
+  }
+  // Fallback: first .docx in directory (stable alphabetical order)
+  try {
+    const first = fs.readdirSync(TEMPLATES_DIR).filter(f => f.toLowerCase().endsWith('.docx')).sort()[0]
+    if (first) return path.join(TEMPLATES_DIR, first)
+  } catch {}
+  return path.join(TEMPLATES_DIR, 'letter-template-nhs-notify_.docx') // legacy path
+}
 
 /**
  * Interface for Carbone render options
@@ -27,7 +45,7 @@ interface CarboneOptions {
  * @param data - Data to populate the template
  * @returns Promise resolving to PDF buffer
  */
-export async function renderPdf(data: Record<string, any>): Promise<Buffer> {
+export async function renderPdf(data: Record<string, any>, templateName?: string): Promise<Buffer> {
   if (process.env.SKIP_CONVERT === '1') {
     return createPlaceholderPdf()
   }
@@ -49,7 +67,7 @@ export async function renderPdf(data: Record<string, any>): Promise<Buffer> {
   // Try primary Carbone conversion
   let primaryError: any = null
   try {
-    return await carboneToBuf(data, { convertTo: 'pdf' })
+    return await carboneToBuf(data, { convertTo: 'pdf' }, templateName)
   } catch (e: any) {
     primaryError = e
     if (e?.code === 'ENOENT') {
@@ -64,7 +82,7 @@ export async function renderPdf(data: Record<string, any>): Promise<Buffer> {
 
   // Try alternate Carbone conversion
   try {
-    const result = await carboneToBuf(data, { convertTo: 'pdf:writer_pdf_Export' })
+  const result = await carboneToBuf(data, { convertTo: 'pdf:writer_pdf_Export' }, templateName)
     log('info', 'Alternate carbone writer_pdf_Export succeeded')
     return result
   } catch (e2: any) {
@@ -76,7 +94,7 @@ export async function renderPdf(data: Record<string, any>): Promise<Buffer> {
   }
 
   // Fall back to direct soffice conversion
-  return fallbackSofficePath(data, sofficePath, primaryError)
+  return fallbackSofficePath(data, sofficePath, primaryError, templateName)
 }
 
 /**
@@ -85,9 +103,10 @@ export async function renderPdf(data: Record<string, any>): Promise<Buffer> {
  * @param options - Carbone options
  * @returns Promise resolving to converted buffer
  */
-function carboneToBuf(data: Record<string, any>, options: CarboneOptions): Promise<Buffer> {
+function carboneToBuf(data: Record<string, any>, options: CarboneOptions, templateName?: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    carbone.render(TEMPLATE_PATH, data, options, (err, result) => {
+    const templatePath = resolveTemplatePath(templateName)
+    carbone.render(templatePath, data, options, (err, result) => {
       if (err) return reject(err)
       if (!result) return reject(new Error('No result from Carbone'))
       resolve(result as unknown as Buffer)
@@ -105,7 +124,8 @@ function carboneToBuf(data: Record<string, any>, options: CarboneOptions): Promi
 async function fallbackSofficePath(
   data: Record<string, any>,
   sofficePath: string | null,
-  primaryError?: any
+  primaryError?: any,
+  templateName?: string
 ): Promise<Buffer> {
   if (!sofficePath) {
     throw primaryError || new Error('Fallback requested but soffice binary not found')
@@ -114,7 +134,7 @@ async function fallbackSofficePath(
   // First generate DOCX
   let docx: Buffer
   try {
-    docx = await carboneToBuf(data, {})
+    docx = await carboneToBuf(data, {}, templateName)
     log('info', 'DOCX generated for fallback', { size: docx.length })
   } catch (e: any) {
     log('error', 'DOCX generation failed for fallback', { error: serializeError(e) })
@@ -239,17 +259,18 @@ startxref
  * Validates that the template file exists
  * @returns True if template exists
  */
-export function validateTemplate(): boolean {
-  return fs.existsSync(TEMPLATE_PATH)
+export function validateTemplate(templateName?: string): boolean {
+  const templatePath = resolveTemplatePath(templateName)
+  return fs.existsSync(templatePath)
 }
 
 /**
  * Gets template file size for diagnostics
  * @returns Template file size in bytes
  */
-export function getTemplateSize(): number {
+export function getTemplateSize(templateName?: string): number {
   try {
-    return fs.statSync(TEMPLATE_PATH).size
+    return fs.statSync(resolveTemplatePath(templateName)).size
   } catch {
     return 0
   }
@@ -258,6 +279,13 @@ export function getTemplateSize(): number {
 /**
  * Gets the template path
  */
-export function getTemplatePath(): string {
-  return TEMPLATE_PATH
+export function getTemplatePath(templateName?: string): string {
+  return resolveTemplatePath(templateName)
+}
+
+/**
+ * Expose templates directory
+ */
+export function getTemplatesDir(): string {
+  return TEMPLATES_DIR
 }

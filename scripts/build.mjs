@@ -11,6 +11,10 @@ const root = resolve(__dirname, '..')
 const outDir = resolve(root, 'package')
 const templateSrc = resolve(root, 'templates', 'letter-template-nhs-notify_.docx')
 const templateDestDir = resolve(outDir, 'templates')
+const clientSrc = resolve(root, 'src', 'client', 'app.js')
+const clientDest = resolve(outDir, 'client-app.js')
+const htmlTemplateSrc = resolve(root, 'src', 'templates', 'input-form', 'index.html')
+const htmlTemplateDest = resolve(outDir, 'input-form.html')
 
 async function run() {
   console.log('[build] start')
@@ -47,6 +51,13 @@ async function run() {
 
   mkdirSync(templateDestDir, { recursive: true })
   cpSync(templateSrc, resolve(templateDestDir, 'letter-template-nhs-notify_.docx'))
+  // Copy client script (not bundled to keep readable + allow caching)
+  if (existsSync(clientSrc)) {
+    cpSync(clientSrc, clientDest)
+  }
+  if (existsSync(htmlTemplateSrc)) {
+    cpSync(htmlTemplateSrc, htmlTemplateDest)
+  }
 
   const rootPkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'))
   const lambdaPkg = {

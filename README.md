@@ -2,6 +2,31 @@
 
 Renders a DOCX template to PDF using [Carbone](https://carbone.io) and the Shelf LibreOffice Lambda Layer.
 
+### New: Multi‑Template & Marker Discovery
+
+The service now supports multiple `.docx` templates placed in the build `templates` directory. A new endpoint `GET /templates` returns a JSON list of available templates and their discovered markers (Carbone placeholders like `{d.fullName}` → marker `fullName`).
+
+The interactive form (GET `/`) loads the template list, lets you switch between them, and dynamically filters the editable field list to just the markers present in the selected template. Any marker that has no example value is auto‑initialised with a placeholder value of `(( markerName ))` so you can see it clearly in the UI.
+
+When you submit a render request the chosen template name is included as `template` (either query param, form field, or JSON body property). If omitted the first template found (alphabetical) is used.
+
+Example `/templates` response:
+
+```json
+{
+  "templates": [
+    {
+      "name": "letter-template-nhs-notify_",
+      "file": "letter-template-nhs-notify_.docx",
+      "size": 54321,
+      "markers": ["fullName", "firstName", "address_line_1"]
+    }
+  ]
+}
+```
+
+Add additional templates by placing more `.docx` files into `src/modules/templates/` (or the equivalent built output directory used during packaging). Rebuild / redeploy and they will appear automatically.
+
 ## Features
 - Node.js 20.x Lambda (x86_64)
 - LibreOffice provided by external layer: `arn:aws:lambda:eu-west-2:764866452798:layer:libreoffice-brotli:1`
