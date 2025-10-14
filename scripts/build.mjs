@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { build } from 'esbuild'
-import { mkdirSync, cpSync, writeFileSync, existsSync, rmSync } from 'node:fs'
+import { mkdirSync, cpSync, writeFileSync, existsSync, rmSync, readdirSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 const outDir = resolve(root, 'package')
-const templateSrc = resolve(root, 'templates', 'letter-template-nhs-notify_.docx')
+const templatesRoot = resolve(root, 'templates')
 const templateDestDir = resolve(outDir, 'templates')
 const clientSrc = resolve(root, 'src', 'client', 'app.js')
 const clientDest = resolve(outDir, 'client-app.js')
@@ -49,8 +49,22 @@ async function run() {
     } catch {}
   })
 
-  mkdirSync(templateDestDir, { recursive: true })
-  cpSync(templateSrc, resolve(templateDestDir, 'letter-template-nhs-notify_.docx'))
+  // Copy all DOCX templates (recursively) from root /templates into package/templates
+  function copyDocxTemplates(srcDir, destDir) {
+    if (!existsSync(srcDir)) return
+    mkdirSync(destDir, { recursive: true })
+    const entries = readdirSync(srcDir, { withFileTypes: true })
+    for (const entry of entries) {
+      const srcPath = resolve(srcDir, entry.name)
+      const destPath = resolve(destDir, entry.name)
+      if (entry.isDirectory()) {
+        copyDocxTemplates(srcPath, destPath)
+      } else if (/\.docx$/i.test(entry.name)) {
+        cpSync(srcPath, destPath)
+      }
+    }
+  }
+  copyDocxTemplates(templatesRoot, templateDestDir)
   // Copy client script (not bundled to keep readable + allow caching)
   if (existsSync(clientSrc)) {
     cpSync(clientSrc, clientDest)

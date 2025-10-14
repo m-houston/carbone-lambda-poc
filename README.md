@@ -191,6 +191,7 @@ node scripts/local-invoke.mjs '{invalid'
 - Add API Gateway HTTP API if needing custom domains / auth.
 - Add CloudWatch log metrics (parse JSON logs for latency & failures).
 - Add unit tests (e.g., using Vitest or Jest) for request parsing and error paths.
+  - (Added) Jest setup with marker extraction tests (see below)
 - Implement template caching / compiled template strategy if Carbone supports it to reduce repeated parsing overhead.
 
 ## Clean Up
@@ -205,6 +206,24 @@ terraform destroy -auto-approve
 
 ## License
 POC - internal use. Review Carbone and LibreOffice licensing for distribution compliance.
+
+## Tests (Marker Extraction)
+
+Jest-based tests cover template marker extraction logic.
+
+Run:
+```bash
+npm test
+```
+
+What they check:
+1. `getTemplatesDir` returns an absolute path.
+2. `listTemplates` returns structured objects with sorted, unique markers.
+3. (Conditional) At least one template produces a non-empty marker list.
+4. Cache stability via `ensureTemplateInfo` (same size -> same markers result).
+5. Missing template path throws.
+
+If no `.docx` exists in the runtime templates directory the “non‑empty marker” and cache tests are skipped (log a warning) so CI can still pass without committing binary templates if desired.
 
 ## Using AWS SSO (aws_profile)
 If you use AWS SSO (IAM Identity Center) with a profile (e.g. `nhs-notify-poc`):
